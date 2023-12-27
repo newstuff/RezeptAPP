@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Ernährungs-App</title>
+    <link rel="manifest" href="/manifest.json">
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #ingredientForm, #ingredientList, #nutritionChart, #nutritionSummary {
+            max-width: 400px;
+            width: 100%;
+            margin: 10px;
+            box-sizing: border-box;
+        }
+
+        #ingredientForm input, #ingredientForm button {
+            width: 100%;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+
+        .ingredient-details span {
+            margin-right: 10px;
+            font-size: 10px;
+        }
+
+        button {
+            width: 400px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            margin-bottom: 10px;
+            background-color: #f2f2f2;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        h3 {
+            margin: 5px;
+            margin-left: 0px;
+        }
+
+        #nutritionChart {
+            margin-top: 20px;
+        }
+
+        #nutritionSummary {
+            background-color: #f2f2f2;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: left;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: auto !important;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <h1 contenteditable="true" id="recipeName">Mein Rezept</h1>
+    </div>
+    <ul id="ingredientList">
+        <!-- Zutatenliste kommt hier -->
+    </ul>
+    <div id="nutritionSummary">
+        <!-- Nährwertsummen kommen hier -->
+    </div>
+    <canvas id="nutritionChart" width="400" height="400">
+        <!-- Kreisdiagramm wird hier gezeichnet -->
+    </canvas>
+    <div>
+        <form id="ingredientForm">
+            <input type="text" id="ingredientName" placeholder="Name">
+            <input type="number" id="ingredientAmount" placeholder="Menge in g">
+            <input type="number" id="ingredientCalories" placeholder="kcal/100g">
+            <input type="number" id="ingredientFat" placeholder="Fett/100g">
+            <input type="number" id="ingredientCarbs" placeholder="Kohlenhydrate/100g">
+            <input type="number" id="ingredientProtein" placeholder="Protein/100g">
+            <button type="submit">Zutat hinzufügen</button>
+        </form>
+    </div>
+    <div>
+        <button id="exportButton">Exportieren</button>
+    </div>
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js').then(function(registration) {
+                console.log('Service Worker Registered!', registration);
+            }).catch(function(error) {
+            console.log('Service Worker Registration failed:', error);
+            });
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('ingredientForm').addEventListener('submit', function(event) {
+                event.preventDefault();
+                addIngredient();
+                updateNutritionSummary();
+                drawNutritionChart();
+            });
+        });
+
+        document.getElementById('exportButton').addEventListener('click', function() {
+            var newWindow = window.open('', '', 'width=600,height=800');
+            newWindow.document.write(document.documentElement.innerHTML);
+
+            // Warte, bis das neue Fenster geladen ist
+            newWindow.document.close();
+            newWindow.onload = function() {
+                var form = newWindow.document.getElementById('ingredientForm');
+                var exportBtn = newWindow.document.getElementById('exportButton');
+                if(form) form.style.display = 'none';
+                if(exportBtn) exportBtn.style.display = 'none';
+
+                // Füge das vorhandene CSS hinzu
+                var css = `<style>
+                    /* Ihr vorhandenes CSS */
+                    body {
+                        font-family: sans-serif;
+                        margin: 0;
+                        padding: 0;
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                    }
+
+                    #ingredientForm, #ingredientList, #nutritionChart, #nutritionSummary {
+                        max-width: 400px;
+                        width: 100%;
+                        margin: 10px;
+                        box-sizing: border-box;
+                    }
+
+                    #ingredientForm input, #ingredientForm button {
+                        width: 100%;
+                        margin: 5px 0;
+                        box-sizing: border-box;
+                    }
+
+                    button {
+                        width: 400px;
+                        margin: 5px 0;
+                        box-sizing: border-box;
+                    }
+
+                    ul {
+                        list-style: none;
+                        padding: 0;
+                    }
+
+                    li {
+                        margin-bottom: 10px;
+                        background-color: #f2f2f2;
+                        padding: 10px;
+                        border-radius: 5px;
+                    }
+
+                    #nutritionChart {
+                        margin-top: 20px;
+                    }
+
+                    #nutritionSummary {
+                        background-color: #f2f2f2;
+                        padding: 10px;
+                        border-radius: 5px;
+                        text-align: left;
+                    }
+
+                    canvas {
+                        width: 100% !important;
+                        height: auto !important;
+                    }
+                </style>`;
+                newWindow.document.head.insertAdjacentHTML('beforeend', css);
+
+                // Neuzeichnen des Kreisdiagramms
+                if(newWindow.drawNutritionChart) {
+                    newWindow.drawNutritionChart();
+                }
+            };
+        });
+
+        function addIngredient() {
+            var name = document.getElementById('ingredientName').value;
+            var amount = document.getElementById('ingredientAmount').value;
+            var calories = document.getElementById('ingredientCalories').value;
+            var fat = document.getElementById('ingredientFat').value;
+            var carbs = document.getElementById('ingredientCarbs').value;
+            var protein = document.getElementById('ingredientProtein').value;
+
+            // Erstelle ein neues Listenelement für die Zutat
+            var list = document.getElementById('ingredientList');
+            var listItem = document.createElement('li');
+            listItem.innerHTML = `
+            <h3 contenteditable="true">${name}</h3>
+            <div class="ingredient-details" style="display: flex; justify-content: space-between;">
+                <span contenteditable="true">${amount} g</span>
+                <span contenteditable="true">${calories} kcal/100g</span>
+                <span contenteditable="true">${fat} g Fett/100g</span>
+                <span contenteditable="true">${carbs} g Carbs/100g</span>
+                <span contenteditable="true">${protein} g Protein/100g</span>
+            </div>`;
+            list.appendChild(listItem);
+
+            // Setze das Formular zurück
+            document.getElementById('ingredientForm').reset();
+
+            // Füge Event Listener zu jedem contenteditable Element hinzu
+            listItem.querySelectorAll('[contenteditable="true"]').forEach(function(element) {
+                element.addEventListener('input', function() {
+                    updateNutritionSummary();
+                    drawNutritionChart();
+                });
+            });
+        }
+        function updateNutritionSummary() {
+            var totalFat = 0, totalCarbs = 0, totalProtein = 0, totalCalories = 0;
+            var items = document.getElementById('ingredientList').children;
+            for (var i = 0; i < items.length; i++) {
+                var details = items[i].querySelector('.ingredient-details').children;
+                var amount = parseFloat(details[0].innerText);
+                var calories = parseFloat(details[1].innerText);
+                var fat = parseFloat(details[2].innerText);
+                var carbs = parseFloat(details[3].innerText);
+                var protein = parseFloat(details[4].innerText);
+
+                totalFat += (fat / 100) * amount;
+                totalCarbs += (carbs / 100) * amount;
+                totalProtein += (protein / 100) * amount;
+                totalCalories += (calories / 100) * amount;
+            }
+
+            var total = totalFat + totalCarbs + totalProtein;
+            var fatPercentage = (totalFat / total) * 100;
+            var carbsPercentage = (totalCarbs / total) * 100;
+            var proteinPercentage = (totalProtein / total) * 100;
+
+            // Aktualisiere die Nährwertsummen im HTML
+            var summary = document.getElementById('nutritionSummary');
+            summary.innerHTML = `<div style="background-color: yellow; color: black;">${fatPercentage.toFixed(1)}% Gesamtfett: ${totalFat.toFixed(2)} g</div>
+                                 <div style="background-color: orange; color: black;">${carbsPercentage.toFixed(1)}% Gesamtkohlenhydrate: ${totalCarbs.toFixed(2)} g</div>
+                                 <div style="background-color: blue; color: white;">${proteinPercentage.toFixed(1)}% Gesamtprotein: ${totalProtein.toFixed(2)} g</div>
+                                 <div>Gesamtkalorien: ${totalCalories.toFixed(2)} kcal</div>`;
+        }
+        function drawNutritionChart() {
+            var canvas = document.getElementById('nutritionChart');
+            var ctx = canvas.getContext('2d');
+
+            // Leere das Canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            var totalFat = 0, totalCarbs = 0, totalProtein = 0;
+            var items = document.getElementById('ingredientList').children;
+            for (var i = 0; i < items.length; i++) {
+                var details = items[i].querySelector('.ingredient-details').children;
+                var amount = parseFloat(details[0].innerText);
+                var fat = parseFloat(details[2].innerText);
+                var carbs = parseFloat(details[3].innerText);
+                var protein = parseFloat(details[4].innerText);
+
+                totalFat += (fat / 100) * amount;
+                totalCarbs += (carbs / 100) * amount;
+                totalProtein += (protein / 100) * amount;
+            }
+
+            var total = totalFat + totalCarbs + totalProtein;
+            var fatAngle = (totalFat / total) * 2 * Math.PI;
+            var carbsAngle = (totalCarbs / total) * 2 * Math.PI;
+            // Protein-Winkel ergibt sich aus dem Rest
+
+            // Zeichne Fett
+            ctx.beginPath();
+            ctx.fillStyle = 'yellow'; // Farbe für Fett
+            ctx.moveTo(200, 200);
+            ctx.arc(200, 200, 100, 0, fatAngle);
+            ctx.lineTo(200, 200);
+            ctx.fill();
+
+            // Zeichne Kohlenhydrate
+            ctx.beginPath();
+            ctx.fillStyle = 'orange'; // Farbe für Kohlenhydrate
+            ctx.moveTo(200, 200);
+            ctx.arc(200, 200, 100, fatAngle, fatAngle + carbsAngle);
+            ctx.lineTo(200, 200);
+            ctx.fill();
+
+            // Zeichne Protein
+            ctx.beginPath();
+            ctx.fillStyle = 'blue'; // Farbe für Protein
+            ctx.moveTo(200, 200);
+            ctx.arc(200, 200, 100, fatAngle + carbsAngle, 2 * Math.PI);
+            ctx.lineTo(200, 200);
+            ctx.fill();
+        }
+    </script>
+</body>
+</html>
