@@ -13,6 +13,19 @@
             align-items: center;
         }
 
+        #ingredientForm, #ingredientList, #nutritionChart, #nutritionSummary, button {
+            max-width: 400px;
+            width: 100%;
+            margin: 10px;
+            box-sizing: border-box;
+        }
+
+        @media (max-width: 400px) {
+            #ingredientForm, #ingredientList, #nutritionChart, #nutritionSummary, button {
+                max-width: 100%;
+            }
+        }
+
         #ingredientForm, #ingredientList, #nutritionChart, #nutritionSummary {
             max-width: 400px;
             width: 100%;
